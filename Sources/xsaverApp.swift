@@ -9,8 +9,8 @@ struct XsaverApp: App {
             DownloadPanel()
                 .environmentObject(state)
         } label: {
-            Image(systemName: "arrow.down.circle.dotted")
-                .font(.system(size: 18, weight: .medium))
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 20, weight: .medium))
         }
         .menuBarExtraStyle(.window)
     }
