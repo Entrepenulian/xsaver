@@ -24,6 +24,7 @@ struct DownloadPanel: View {
             VStack(spacing: 10) {
                 modeToggle
                 urlField
+                nameField
                 actionSurface
                 if case .failure(let message) = state.phase { errorLine(message) }
             }
@@ -96,6 +97,20 @@ struct DownloadPanel: View {
             .glassEffect(.regular, in: .rect(cornerRadius: innerRadius))
             .modifier(Shake(animatableData: reduceMotion ? 0 : CGFloat(state.shakeToken)))
             .animation(reduceMotion ? nil : .linear(duration: 0.4), value: state.shakeToken)
+    }
+
+    // MARK: - Optional file name
+
+    private var nameField: some View {
+        TextField("File name (optional)", text: $state.customName)
+            .textFieldStyle(.plain)
+            .font(.callout)
+            .lineLimit(1)
+            .disabled(state.isBusy)
+            .onSubmit(state.start)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .glassEffect(.regular, in: .rect(cornerRadius: innerRadius))
     }
 
     // MARK: - Action surface (one element, four states, morphing glass)

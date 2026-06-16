@@ -10,11 +10,24 @@ enum DownloadLocation {
             ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     }
 
-    private static func base(for video: ExtractedVideo) -> String {
+    private static func base(for video: ExtractedVideo, custom: String?) -> String {
+        if let custom, let clean = sanitizedName(custom) {
+            return clean
+        }
         if let handle = video.authorHandle, !handle.isEmpty {
             return "\(handle)-\(video.tweetID)"
         }
         return "twitter-\(video.tweetID)"
+    }
+
+    /// Make a user-typed name safe to use as a filename (drop path separators and
+    /// illegal characters). Returns nil if nothing usable is left.
+    private static func sanitizedName(_ name: String) -> String? {
+        let illegal = CharacterSet(charactersIn: "/\\:")
+        let cleaned = name
+            .components(separatedBy: illegal).joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : cleaned
     }
 
     private static func unique(in dir: URL, base: String, ext: String) -> URL {
@@ -29,17 +42,17 @@ enum DownloadLocation {
     }
 
     /// Final destination for a downloaded video, in the ~/Downloads/X downloads folder.
-    static func uniqueVideo(for video: ExtractedVideo) -> URL {
+    static func uniqueVideo(for video: ExtractedVideo, custom: String?) -> URL {
         let dir = downloads.appendingPathComponent("X downloads", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return unique(in: dir, base: base(for: video), ext: "mp4")
+        return unique(in: dir, base: base(for: video, custom: custom), ext: "mp4")
     }
 
     /// Final destination for extracted audio, in the ~/Downloads/X-Audio folder.
-    static func uniqueAudio(for video: ExtractedVideo) -> URL {
+    static func uniqueAudio(for video: ExtractedVideo, custom: String?) -> URL {
         let dir = downloads.appendingPathComponent("X-Audio", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return unique(in: dir, base: base(for: video), ext: "m4a")
+        return unique(in: dir, base: base(for: video, custom: custom), ext: "m4a")
     }
 
     /// Scratch location for the MP4 we download before stripping its audio.
@@ -65,6 +78,7 @@ final class AppState: ObservableObject {
     }
 
     @Published var urlText = ""
+    @Published var customName = ""
     @Published var phase: Phase = .idle
     @Published var mode: Mode = .video
     /// Bumped on each failure so the input can play one shake cycle.
@@ -125,6 +139,7 @@ final class AppState: ObservableObject {
         guard !input.isEmpty, !isBusy else { return }
 
         let mode = self.mode
+        let custom = customName
         phase = .working("Finding video…")
         Task {
             do {
@@ -143,7 +158,7 @@ final class AppState: ObservableObject {
 
                 switch mode {
                 case .video:
-                    let dest = DownloadLocation.uniqueVideo(for: video)
+                    let dest = DownloadLocation.uniqueVideo(for: video, custom: custom)
                     let saved = try await dl.download(from: video.url, to: dest, progress: onProgress)
                     downloader = nil
                     phase = .success(saved)
@@ -153,7 +168,7 @@ final class AppState: ObservableObject {
                     let downloaded = try await dl.download(from: video.url, to: temp, progress: onProgress)
                     downloader = nil
                     phase = .working("Extracting audio…")
-                    let audioDest = DownloadLocation.uniqueAudio(for: video)
+                    let audioDest = DownloadLocation.uniqueAudio(for: video, custom: custom)
                     try await AudioExtractor.extractM4A(from: downloaded, to: audioDest)
                     try? FileManager.default.removeItem(at: downloaded)
                     phase = .success(audioDest)
@@ -172,6 +187,7 @@ final class AppState: ObservableObject {
     func reset() {
         phase = .idle
         urlText = ""
+        customName = ""
         downloader = nil
     }
 
