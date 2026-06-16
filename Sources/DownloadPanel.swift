@@ -14,6 +14,7 @@ struct DownloadPanel: View {
     @EnvironmentObject private var state: AppState
     @FocusState private var fieldFocused: Bool
     @Namespace private var glass
+    @Namespace private var toggle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let innerRadius: CGFloat = 16
@@ -21,6 +22,7 @@ struct DownloadPanel: View {
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             VStack(spacing: 10) {
+                modeToggle
                 urlField
                 actionSurface
                 if case .failure(let message) = state.phase { errorLine(message) }
@@ -46,6 +48,37 @@ struct DownloadPanel: View {
             .opacity(0)
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
+    }
+
+    // MARK: - Mode toggle (Video / Audio)
+
+    private var modeToggle: some View {
+        HStack(spacing: 4) {
+            ForEach(AppState.Mode.allCases, id: \.self) { m in
+                let selected = state.mode == m
+                Text(m.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background {
+                        if selected {
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.30))
+                                .matchedGeometryEffect(id: "segment", in: toggle)
+                        }
+                    }
+                    .contentShape(Capsule())
+                    .onTapGesture {
+                        guard !state.isBusy else { return }
+                        withAnimation(.snappy(duration: 0.25)) { state.mode = m }
+                    }
+                    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(4)
+        .glassEffect(.regular, in: .capsule)
+        .opacity(state.isBusy ? 0.5 : 1)
     }
 
     // MARK: - URL field
@@ -108,7 +141,8 @@ struct DownloadPanel: View {
                     .foregroundStyle(.green)
                     .symbolEffect(.bounce, value: url)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Saved to Downloads").font(.callout.weight(.semibold))
+                    Text(url.pathExtension == "m4a" ? "Saved to Downloads / X-Audio" : "Saved to Downloads")
+                        .font(.callout.weight(.semibold))
                     Text(url.lastPathComponent)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)

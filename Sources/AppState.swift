@@ -1,28 +1,49 @@
 import AppKit
 import SwiftUI
 
-/// Decides where a downloaded video is saved (~/Downloads, with a readable,
-/// collision-free filename).
+/// Decides where downloads are saved: videos in ~/Downloads, extracted audio in
+/// ~/Downloads/xsaver Audio, both with readable, collision-free filenames.
 enum DownloadLocation {
-    static func unique(for video: ExtractedVideo) -> URL {
+    private static var downloads: URL {
         let fm = FileManager.default
-        let dir = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        return fm.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+    }
 
-        let base: String = {
-            if let handle = video.authorHandle, !handle.isEmpty {
-                return "\(handle)-\(video.tweetID)"
-            }
-            return "twitter-\(video.tweetID)"
-        }()
+    private static func base(for video: ExtractedVideo) -> String {
+        if let handle = video.authorHandle, !handle.isEmpty {
+            return "\(handle)-\(video.tweetID)"
+        }
+        return "twitter-\(video.tweetID)"
+    }
 
-        var candidate = dir.appendingPathComponent(base + ".mp4")
+    private static func unique(in dir: URL, base: String, ext: String) -> URL {
+        let fm = FileManager.default
+        var candidate = dir.appendingPathComponent("\(base).\(ext)")
         var i = 1
         while fm.fileExists(atPath: candidate.path) {
-            candidate = dir.appendingPathComponent("\(base) (\(i)).mp4")
+            candidate = dir.appendingPathComponent("\(base) (\(i)).\(ext)")
             i += 1
         }
         return candidate
+    }
+
+    /// Final destination for a downloaded video.
+    static func uniqueVideo(for video: ExtractedVideo) -> URL {
+        unique(in: downloads, base: base(for: video), ext: "mp4")
+    }
+
+    /// Final destination for extracted audio, in the ~/Downloads/X-Audio folder.
+    static func uniqueAudio(for video: ExtractedVideo) -> URL {
+        let dir = downloads.appendingPathComponent("X-Audio", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return unique(in: dir, base: base(for: video), ext: "m4a")
+    }
+
+    /// Scratch location for the MP4 we download before stripping its audio.
+    static func tempVideo(for video: ExtractedVideo) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("xsaver-\(video.tweetID)-\(UUID().uuidString).mp4")
     }
 }
 
@@ -36,8 +57,14 @@ final class AppState: ObservableObject {
         case failure(String)
     }
 
+    enum Mode: CaseIterable {
+        case video, audio
+        var title: String { self == .video ? "Video" : "Audio" }
+    }
+
     @Published var urlText = ""
     @Published var phase: Phase = .idle
+    @Published var mode: Mode = .video
     /// Bumped on each failure so the input can play one shake cycle.
     @Published var shakeToken = 0
 
@@ -82,25 +109,40 @@ final class AppState: ObservableObject {
         let input = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty, !isBusy else { return }
 
+        let mode = self.mode
         phase = .working("Finding video…")
         Task {
             do {
                 let video = try await TweetVideoExtractor.extract(from: input)
                 phase = .downloading(0)
 
-                let destination = DownloadLocation.unique(for: video)
                 let dl = VideoDownloader()
                 downloader = dl
-
-                let saved = try await dl.download(from: video.url, to: destination) { fraction in
+                let onProgress: @Sendable (Double) -> Void = { fraction in
                     Task { @MainActor in
                         if case .downloading = self.phase {
                             self.phase = .downloading(fraction)
                         }
                     }
                 }
-                downloader = nil
-                phase = .success(saved)
+
+                switch mode {
+                case .video:
+                    let dest = DownloadLocation.uniqueVideo(for: video)
+                    let saved = try await dl.download(from: video.url, to: dest, progress: onProgress)
+                    downloader = nil
+                    phase = .success(saved)
+
+                case .audio:
+                    let temp = DownloadLocation.tempVideo(for: video)
+                    let downloaded = try await dl.download(from: video.url, to: temp, progress: onProgress)
+                    downloader = nil
+                    phase = .working("Extracting audio…")
+                    let audioDest = DownloadLocation.uniqueAudio(for: video)
+                    try await AudioExtractor.extractM4A(from: downloaded, to: audioDest)
+                    try? FileManager.default.removeItem(at: downloaded)
+                    phase = .success(audioDest)
+                }
                 scheduleAutoReset()
             } catch {
                 downloader = nil
