@@ -10,7 +10,7 @@ struct XsaverApp: App {
                 .environmentObject(state)
         } label: {
             Image(systemName: "arrow.down.circle")
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 18, weight: .medium)) // renders ~18x18px visible
         }
         .menuBarExtraStyle(.window)
     }
