@@ -43,9 +43,9 @@ final class AppState: ObservableObject {
 
     // Held strongly for the lifetime of an in-flight download.
     private var downloader: VideoDownloader?
-    // The pasteboard change count we last auto-filled from, so clearing the field
-    // and reopening the panel doesn't keep re-inserting the same link.
-    private var lastPasteboardChangeCount = -1
+    // The last link we auto-filled, persisted so a link you've already seen (and
+    // maybe cleared) never comes back until you copy a different one.
+    private let autoFilledKey = "xsaver.lastAutoFilledLink"
 
     var isBusy: Bool {
         switch phase {
@@ -54,19 +54,30 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// When the panel opens, pre-fill the field if the clipboard holds an X link —
-    /// but only when the clipboard changed since we last filled. That way, once you
-    /// clear the field, reopening the panel leaves it empty until you copy a new link.
-    func loadClipboardIfLink() {
-        let pasteboard = NSPasteboard.general
-        guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
-        lastPasteboardChangeCount = pasteboard.changeCount
-
-        guard case .idle = phase, urlText.isEmpty else { return }
-        if let s = pasteboard.string(forType: .string),
-           TweetVideoExtractor.tweetID(from: s) != nil {
-            urlText = s.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Called every time the panel opens. A finished (or failed) download is cleared
+    /// so reopening always starts fresh, then we offer the clipboard link.
+    func onPanelAppear() {
+        switch phase {
+        case .success, .failure:
+            reset()
+        default:
+            break
         }
+        loadClipboardIfLink()
+    }
+
+    /// Pre-fill the field if the clipboard holds an X link — but only a link we
+    /// haven't auto-filled before. Once you clear a link, it won't come back until
+    /// you copy a different one.
+    private func loadClipboardIfLink() {
+        guard case .idle = phase, urlText.isEmpty else { return }
+        guard let s = NSPasteboard.general.string(forType: .string)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+              TweetVideoExtractor.tweetID(from: s) != nil else { return }
+
+        if UserDefaults.standard.string(forKey: autoFilledKey) == s { return }
+        urlText = s
+        UserDefaults.standard.set(s, forKey: autoFilledKey)
     }
 
     func start() {
@@ -92,6 +103,7 @@ final class AppState: ObservableObject {
                 }
                 downloader = nil
                 phase = .success(saved)
+                scheduleAutoReset()
             } catch {
                 downloader = nil
                 let message = (error as? LocalizedError)?.errorDescription
@@ -106,6 +118,14 @@ final class AppState: ObservableObject {
         phase = .idle
         urlText = ""
         downloader = nil
+    }
+
+    /// Clear a finished download on its own after 5 seconds.
+    private func scheduleAutoReset() {
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if case .success = phase { reset() }
+        }
     }
 
     func revealInFinder(_ url: URL) {

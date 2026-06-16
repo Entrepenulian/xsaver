@@ -23,7 +23,6 @@ struct DownloadPanel: View {
             VStack(spacing: 10) {
                 urlField
                 actionSurface
-                if case .success = state.phase { resetButton }
                 if case .failure(let message) = state.phase { errorLine(message) }
             }
             .padding(12)
@@ -32,7 +31,7 @@ struct DownloadPanel: View {
         .frame(width: 320)
         .animation(.smooth(duration: 0.3), value: state.phase)
         .onAppear {
-            state.loadClipboardIfLink()
+            state.onPanelAppear()
             fieldFocused = true
         }
     }
@@ -153,17 +152,6 @@ struct DownloadPanel: View {
     }
 
     // MARK: - Secondary controls
-
-    private var resetButton: some View {
-        Button(action: state.reset) {
-            Text("Download another")
-                .font(.caption.weight(.medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-        }
-        .buttonStyle(.glass)
-        .transition(.opacity)
-    }
 
     private func errorLine(_ message: String) -> some View {
         Label(message, systemImage: "exclamationmark.triangle.fill")
