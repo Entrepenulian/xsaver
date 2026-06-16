@@ -11,3 +11,6 @@ DerivedData/
 # Xcode user state
 xcuserdata/
 *.xcuserstate
+
+# gstack browse artifacts
+.gstack/
