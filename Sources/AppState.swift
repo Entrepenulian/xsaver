@@ -43,6 +43,9 @@ final class AppState: ObservableObject {
 
     // Held strongly for the lifetime of an in-flight download.
     private var downloader: VideoDownloader?
+    // The pasteboard change count we last auto-filled from, so clearing the field
+    // and reopening the panel doesn't keep re-inserting the same link.
+    private var lastPasteboardChangeCount = -1
 
     var isBusy: Bool {
         switch phase {
@@ -51,10 +54,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// When the panel opens, pre-fill the field if the clipboard holds an X link.
+    /// When the panel opens, pre-fill the field if the clipboard holds an X link —
+    /// but only when the clipboard changed since we last filled. That way, once you
+    /// clear the field, reopening the panel leaves it empty until you copy a new link.
     func loadClipboardIfLink() {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
+        lastPasteboardChangeCount = pasteboard.changeCount
+
         guard case .idle = phase, urlText.isEmpty else { return }
-        if let s = NSPasteboard.general.string(forType: .string),
+        if let s = pasteboard.string(forType: .string),
            TweetVideoExtractor.tweetID(from: s) != nil {
             urlText = s.trimmingCharacters(in: .whitespacesAndNewlines)
         }
