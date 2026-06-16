@@ -92,11 +92,24 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Open and close both start the field from empty. The only thing that survives
-    /// is a download that's still running, so closing the panel mid-download and
-    /// reopening still shows its progress.
-    func onPanelAppear() { resetUnlessDownloading() }
+    /// Opening starts fresh, then auto-fills the field if the clipboard holds an X
+    /// link. Closing clears it (unless a download is running). So the field always
+    /// reflects whatever X link is currently on your clipboard, or nothing.
+    func onPanelAppear() {
+        resetUnlessDownloading()
+        loadClipboardLink()
+    }
+
     func onPanelDisappear() { resetUnlessDownloading() }
+
+    private func loadClipboardLink() {
+        guard case .idle = phase, urlText.isEmpty else { return }
+        if let s = NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           TweetVideoExtractor.tweetID(from: s) != nil {
+            urlText = s
+        }
+    }
 
     private func resetUnlessDownloading() {
         switch phase {
