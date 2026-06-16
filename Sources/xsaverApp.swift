@@ -5,7 +5,7 @@ struct XsaverApp: App {
     @StateObject private var state = AppState()
 
     var body: some Scene {
-        MenuBarExtra("xsaver", systemImage: "arrow.down.circle") {
+        MenuBarExtra("xsaver", image: "XLogo") {
             DownloadPanel()
                 .environmentObject(state)
         }

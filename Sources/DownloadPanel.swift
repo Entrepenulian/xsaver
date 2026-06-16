@@ -34,6 +34,9 @@ struct DownloadPanel: View {
             state.onPanelAppear()
             fieldFocused = true
         }
+        .onDisappear {
+            state.onPanelDisappear()
+        }
     }
 
     /// Invisible ⌘Q so the app can still be quit while the panel is focused.

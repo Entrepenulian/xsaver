@@ -43,9 +43,18 @@ final class AppState: ObservableObject {
 
     // Held strongly for the lifetime of an in-flight download.
     private var downloader: VideoDownloader?
-    // The last link we auto-filled, persisted so a link you've already seen (and
-    // maybe cleared) never comes back until you copy a different one.
-    private let autoFilledKey = "xsaver.lastAutoFilledLink"
+
+    init() {
+        // The panel closes when the app resigns active (you click outside). Clear the
+        // field then, so reopening always starts empty even if the SwiftUI lifecycle
+        // callbacks don't fire reliably for the menu-bar window.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.resetUnlessDownloading() }
+        }
+    }
 
     var isBusy: Bool {
         switch phase {
@@ -54,30 +63,19 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Called every time the panel opens. A finished (or failed) download is cleared
-    /// so reopening always starts fresh, then we offer the clipboard link.
-    func onPanelAppear() {
+    /// Open and close both start the field from empty. The only thing that survives
+    /// is a download that's still running, so closing the panel mid-download and
+    /// reopening still shows its progress.
+    func onPanelAppear() { resetUnlessDownloading() }
+    func onPanelDisappear() { resetUnlessDownloading() }
+
+    private func resetUnlessDownloading() {
         switch phase {
-        case .success, .failure:
-            reset()
-        default:
+        case .working, .downloading:
             break
+        default:
+            reset()
         }
-        loadClipboardIfLink()
-    }
-
-    /// Pre-fill the field if the clipboard holds an X link — but only a link we
-    /// haven't auto-filled before. Once you clear a link, it won't come back until
-    /// you copy a different one.
-    private func loadClipboardIfLink() {
-        guard case .idle = phase, urlText.isEmpty else { return }
-        guard let s = NSPasteboard.general.string(forType: .string)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-              TweetVideoExtractor.tweetID(from: s) != nil else { return }
-
-        if UserDefaults.standard.string(forKey: autoFilledKey) == s { return }
-        urlText = s
-        UserDefaults.standard.set(s, forKey: autoFilledKey)
     }
 
     func start() {
