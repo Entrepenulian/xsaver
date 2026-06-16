@@ -5,14 +5,9 @@ struct XsaverApp: App {
     @StateObject private var state = AppState()
 
     var body: some Scene {
-        MenuBarExtra {
+        MenuBarExtra("xsaver", systemImage: "arrow.down.circle.dotted") {
             DownloadPanel()
                 .environmentObject(state)
-        } label: {
-            Image("XLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 18, height: 18)
         }
         .menuBarExtraStyle(.window)
     }
