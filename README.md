@@ -1,56 +1,66 @@
-# xsaver
+<div align="center">
 
-A tiny **native macOS menu-bar app** for downloading videos from X.com (Twitter)
-posts — built so you never have to paste links into a sketchy third-party website.
-It runs entirely on your Mac and only ever talks to X/Twitter's own servers.
+# ⬇️ xsaver
+
+### A native macOS menu bar app for saving videos and audio from X
+
+Paste a link, click once, and the video (or just its audio) lands in your Downloads.
+It lives quietly in your menu bar and runs entirely on your own Mac.
+
+<img src="docs/screenshots/panel.png" width="300" alt="The xsaver panel with a Video / Audio toggle, a link field, and a Download button" />
+
+</div>
+
+---
 
 ## What it does
 
-Click the menu-bar icon → paste an X post link → hit **Download**. The
-highest-quality MP4 is saved straight to `~/Downloads`. No dock icon, no window,
-no third-party server, no ads, no tracking.
+xsaver saves videos from X (formerly Twitter) straight to your Mac. Copy a post's
+link, open xsaver from your menu bar, paste it in, and hit Download. You can grab the
+full video, or pull out just the audio.
 
-- Auto-fills the field if an X link is already on your clipboard.
-- Picks the best available quality automatically.
-- Live download progress + "Show in Finder".
+No website, no account, no ads. It only ever talks to X, and nothing else sees what
+you download.
 
-## How it works
+## It lives in your menu bar
 
-It uses X's public *syndication* endpoint (`cdn.syndication.twimg.com`) — the same
-no-login API that powers embedded tweets — to resolve a post's video, then downloads
-the MP4 directly. The extraction logic lives entirely in
-[`Sources/TweetVideoExtractor.swift`](Sources/TweetVideoExtractor.swift) (~one file
-you can read top to bottom).
+Click the little download icon at the top of your screen and a small panel drops down.
+That is the whole app.
 
-## Build & run
+<p align="center">
+  <img src="docs/screenshots/menubar.png" width="300" alt="The xsaver download icon sitting in the macOS menu bar" />
+</p>
 
-Requires macOS 14+ and Xcode command-line tools. `xcodegen` generates the project.
+## How to use it
+
+1. **Copy** the link to any X post that has a video.
+2. **Click** the xsaver icon in your menu bar.
+3. **Choose** Video or Audio, paste the link, and hit **Download**.
+
+That's it. The panel shows the progress and tells you the moment it's saved.
+
+## Where your files go
+
+| You picked | It saves to | As |
+| --- | --- | --- |
+| **Video** | `Downloads / X downloads` | a video file (`.mp4`) |
+| **Audio** | `Downloads / X-Audio` | an audio file (`.m4a`) |
+
+Both folders are created for you automatically inside your Downloads.
+
+## Run it on your Mac
+
+xsaver is built with Xcode. To build it and start it up:
 
 ```sh
-./build.sh           # generates the project, builds, and opens xsaver.app
+./build.sh
 ```
 
-Or manually:
+The icon appears in your menu bar. To have it launch automatically, add **xsaver.app**
+to **System Settings → General → Login Items**.
 
-```sh
-xcodegen generate
-xcodebuild -project xsaver.xcodeproj -scheme xsaver -configuration Release \
-  -derivedDataPath build build
-open build/Build/Products/Release/xsaver.app
-```
+---
 
-The icon appears in your menu bar (top-right). To launch it automatically, add
-`xsaver.app` to **System Settings → General → Login Items**.
-
-## Scope
-
-**v1:** single-video posts, best quality, save to Downloads, progress, Show in Finder.
-
-**Not yet (easy follow-ups):** quality picker, GIF/image/thread/multi-video download,
-batch queue, custom save folder. If X ever changes the syndication API, only
-`TweetVideoExtractor.swift` needs updating.
-
-## Note
-
-For downloading your own clips and content you're permitted to save. Respect X's
-terms and others' copyright.
+<div align="center">
+<sub>Runs entirely on your Mac. For saving your own clips and content you're allowed to download.</sub>
+</div>

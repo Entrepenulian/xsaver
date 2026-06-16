@@ -141,7 +141,7 @@ struct DownloadPanel: View {
                     .foregroundStyle(.green)
                     .symbolEffect(.bounce, value: url)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(url.pathExtension == "m4a" ? "Saved to Downloads / X-Audio" : "Saved to Downloads")
+                    Text(url.pathExtension == "m4a" ? "Saved to Downloads / X-Audio" : "Saved to Downloads / X downloads")
                         .font(.callout.weight(.semibold))
                     Text(url.lastPathComponent)
                         .font(.caption.monospaced())

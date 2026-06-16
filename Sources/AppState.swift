@@ -28,9 +28,11 @@ enum DownloadLocation {
         return candidate
     }
 
-    /// Final destination for a downloaded video.
+    /// Final destination for a downloaded video, in the ~/Downloads/X downloads folder.
     static func uniqueVideo(for video: ExtractedVideo) -> URL {
-        unique(in: downloads, base: base(for: video), ext: "mp4")
+        let dir = downloads.appendingPathComponent("X downloads", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return unique(in: dir, base: base(for: video), ext: "mp4")
     }
 
     /// Final destination for extracted audio, in the ~/Downloads/X-Audio folder.
