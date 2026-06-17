@@ -32,7 +32,10 @@ final class VideoDownloader: NSObject, URLSessionDownloadDelegate {
         self.session = session
 
         var req = URLRequest(url: url)
-        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        // A full browser User-Agent so CDNs (X and Instagram) serve the file reliably.
+        req.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+            forHTTPHeaderField: "User-Agent")
 
         return try await withCheckedThrowingContinuation { cont in
             self.continuation = cont
