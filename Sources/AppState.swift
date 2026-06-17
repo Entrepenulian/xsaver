@@ -17,7 +17,7 @@ enum DownloadLocation {
         if let handle = video.authorHandle, !handle.isEmpty {
             return "\(handle)-\(video.tweetID)"
         }
-        return "twitter-\(video.tweetID)"
+        return "video-\(video.tweetID)"
     }
 
     /// Make a user-typed name safe to use as a filename (drop path separators and
@@ -86,6 +86,7 @@ final class AppState: ObservableObject {
 
     // Held strongly for the lifetime of an in-flight download.
     private var downloader: VideoDownloader?
+    let instagramAuth = InstagramAuth()
 
     init() {
         // The panel closes when the app resigns active (you click outside). Clear the
@@ -120,7 +121,7 @@ final class AppState: ObservableObject {
         guard case .idle = phase, urlText.isEmpty else { return }
         if let s = NSPasteboard.general.string(forType: .string)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
-           TweetVideoExtractor.tweetID(from: s) != nil {
+           MediaExtractor.isSupportedLink(s) {
             urlText = s
         }
     }
@@ -143,7 +144,7 @@ final class AppState: ObservableObject {
         phase = .working("Finding video…")
         Task {
             do {
-                let video = try await TweetVideoExtractor.extract(from: input)
+                let video = try await resolveVideo(input)
                 phase = .downloading(0)
 
                 let dl = VideoDownloader()
@@ -176,11 +177,33 @@ final class AppState: ObservableObject {
                 scheduleAutoReset()
             } catch {
                 downloader = nil
+                // Instagram needs a one-time login: open the login window and prompt,
+                // without the "wrong link" shake.
+                if case InstagramExtractionError.notLoggedIn = error {
+                    instagramAuth.presentLogin()
+                    phase = .failure("Log in to Instagram, then press Download again.")
+                    return
+                }
                 let message = (error as? LocalizedError)?.errorDescription
                     ?? error.localizedDescription
                 shakeToken += 1
                 phase = .failure(message)
             }
+        }
+    }
+
+    /// Resolve a pasted link to a downloadable video, picking the right platform.
+    private func resolveVideo(_ input: String) async throws -> ExtractedVideo {
+        switch MediaExtractor.detect(input) {
+        case .x:
+            return try await TweetVideoExtractor.extract(from: input)
+        case .instagram(let shortcode):
+            guard let cookie = await instagramAuth.cookieHeader() else {
+                throw InstagramExtractionError.notLoggedIn
+            }
+            return try await InstagramVideoExtractor.extract(shortcode: shortcode, cookieHeader: cookie)
+        case .none:
+            throw ExtractionError.noTweetID
         }
     }
 

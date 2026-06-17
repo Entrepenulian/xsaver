@@ -18,7 +18,7 @@ enum ExtractionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noTweetID:
-            return "That doesn't look like an X post link."
+            return "That doesn't look like an X or Instagram link."
         case .requestFailed(let code):
             return "X returned an error (HTTP \(code))."
         case .tweetUnavailable:
