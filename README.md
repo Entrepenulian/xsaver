@@ -67,9 +67,3 @@ xsaver is built with Xcode. To build it and start it up:
 
 The icon appears in your menu bar. To have it launch automatically, add **xsaver.app**
 to **System Settings → General → Login Items**.
-
----
-
-<div align="center">
-<sub>Runs entirely on your Mac. For saving your own clips and content you're allowed to download.</sub>
-</div>
