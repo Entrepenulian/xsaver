@@ -2,7 +2,7 @@
 
 # ⬇️ xsaver
 
-### A native macOS menu bar app for saving videos and audio from X
+### A native macOS menu bar app for saving videos and audio from X and Instagram
 
 Paste a link, click once, and the video (or just its audio) lands in your Downloads.
 It lives quietly in your menu bar and runs entirely on your own Mac.
@@ -15,12 +15,14 @@ It lives quietly in your menu bar and runs entirely on your own Mac.
 
 ## What it does
 
-xsaver saves videos from X (formerly Twitter) straight to your Mac. Copy a post's
-link, open xsaver from your menu bar, paste it in, and hit Download. You can grab the
-full video, or pull out just the audio.
+xsaver saves videos from **X** (formerly Twitter) and **Instagram reels** straight to
+your Mac. Copy a post's link, open xsaver from your menu bar, paste it in, and hit
+Download. You can grab the full video, or pull out just the audio.
 
-No website, no account, no ads. It only ever talks to X, and nothing else sees what
-you download.
+It knows which link is which, so you do not pick anything. Paste an X link or an
+Instagram link and it just works.
+
+No website, no third-party downloader, no ads. Nothing else sees what you download.
 
 ## It lives in your menu bar
 
@@ -33,11 +35,18 @@ That is the whole app.
 
 ## How to use it
 
-1. **Copy** the link to any X post that has a video.
+1. **Copy** the link to any X post or Instagram reel that has a video.
 2. **Click** the xsaver icon in your menu bar.
 3. **Choose** Video or Audio, paste the link, and hit **Download**.
 
-That's it. The panel shows the progress and tells you the moment it's saved.
+That's it. The panel shows the progress and tells you the moment it's saved. You can
+also type your own file name, or leave it blank to keep the default.
+
+### Instagram
+
+Instagram only lets you download reels while you're signed in. The first time you grab
+a reel, a small **Log in to Instagram** window appears. Sign in once and xsaver
+remembers it, so after that reels download just like X videos.
 
 ## Where your files go
 
