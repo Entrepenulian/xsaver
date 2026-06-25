@@ -1,6 +1,11 @@
 import SwiftUI
 import AppKit
 
+extension Color {
+    /// The xsaver accent — #FF6A1A.
+    static let xsaverAccent = Color(red: 255.0 / 255.0, green: 106.0 / 255.0, blue: 26.0 / 255.0)
+}
+
 // Intent: you just copied an X video link and want it in ~/Downloads with one
 // gesture. The panel is a single pane of Liquid Glass floating from the menu bar —
 // quiet, tactile, native to macOS. One field, one action surface that morphs through
@@ -65,7 +70,7 @@ struct DownloadPanel: View {
                     .background {
                         if selected {
                             Capsule()
-                                .fill(Color.accentColor.opacity(0.30))
+                                .fill(Color.xsaverAccent.opacity(0.30))
                                 .matchedGeometryEffect(id: "segment", in: toggle)
                         }
                     }
@@ -185,7 +190,7 @@ struct DownloadPanel: View {
         if case .downloading(let fraction) = state.phase {
             GeometryReader { geo in
                 shape
-                    .fill(Color.accentColor.opacity(0.28))
+                    .fill(Color.xsaverAccent.opacity(0.28))
                     .frame(width: max(0, geo.size.width * fraction))
                     .animation(.smooth(duration: 0.25), value: fraction)
             }
@@ -195,7 +200,7 @@ struct DownloadPanel: View {
     private var surfaceGlass: Glass {
         switch state.phase {
         case .idle, .failure:
-            return canStart ? .regular.tint(.accentColor).interactive() : .regular
+            return canStart ? .regular.tint(Color.xsaverAccent).interactive() : .regular
         case .success:
             return .regular.tint(.green.opacity(0.6)).interactive()
         case .working, .downloading:
