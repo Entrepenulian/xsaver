@@ -37,6 +37,7 @@ struct DownloadPanel: View {
             .background(quitShortcut)
         }
         .frame(width: 320)
+        .tint(Color.xsaverAccent) // caret + text selection use the accent
         .animation(.smooth(duration: 0.3), value: state.phase)
         .onAppear {
             state.onPanelAppear()
