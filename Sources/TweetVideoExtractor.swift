@@ -60,7 +60,17 @@ enum TweetVideoExtractor {
 
     static func extract(from raw: String) async throws -> ExtractedVideo {
         guard let id = tweetID(from: raw) else { throw ExtractionError.noTweetID }
+        do {
+            return try await extractViaSyndication(id: id)
+        } catch {
+            // The public embed API tombstones sensitive / age-restricted posts. Fall
+            // back to X's real GraphQL API (via a guest token), which returns more.
+            if let viaAPI = try? await extractViaGraphQL(id: id) { return viaAPI }
+            throw error
+        }
+    }
 
+    private static func extractViaSyndication(id: String) async throws -> ExtractedVideo {
         var comps = URLComponents(string: "https://cdn.syndication.twimg.com/tweet-result")!
         comps.queryItems = [
             URLQueryItem(name: "id", value: id),
@@ -116,6 +126,100 @@ enum TweetVideoExtractor {
             tweetID: id,
             authorHandle: result.user?.screenName)
     }
+
+    // MARK: - GraphQL fallback (X's real API via a guest token)
+
+    private static let bearer =
+        "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
+    private static let webUserAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+    private static let tweetResultQueryID = "0hWvDhmW8YQ-S_ib3azIrw"
+
+    private static func guestToken() async throws -> String {
+        var req = URLRequest(url: URL(string: "https://api.twitter.com/1.1/guest/activate.json")!)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        req.setValue(webUserAgent, forHTTPHeaderField: "User-Agent")
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["guest_token"] as? String else {
+            throw ExtractionError.requestFailed(-1)
+        }
+        return token
+    }
+
+    private static func extractViaGraphQL(id: String) async throws -> ExtractedVideo {
+        let token = try await guestToken()
+
+        let variables = "{\"tweetId\":\"\(id)\",\"withCommunity\":false,\"includePromotedContent\":false,\"withVoice\":false}"
+        var comps = URLComponents(
+            string: "https://api.x.com/graphql/\(tweetResultQueryID)/TweetResultByRestId")!
+        comps.queryItems = [
+            URLQueryItem(name: "variables", value: variables),
+            URLQueryItem(name: "features", value: graphQLFeatures.trimmingCharacters(in: .whitespacesAndNewlines)),
+        ]
+
+        var req = URLRequest(url: comps.url!)
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        req.setValue(token, forHTTPHeaderField: "x-guest-token")
+        req.setValue(webUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+            throw ExtractionError.requestFailed((resp as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+        let json = try JSONSerialization.jsonObject(with: data)
+
+        // Recursively collect every mp4 variant, regardless of Tweet vs
+        // TweetWithVisibilityResults nesting, and take the highest bitrate.
+        let variants = Self.collectVariants(json)
+            .filter { ($0["content_type"] as? String) == "video/mp4" }
+        guard let best = variants.max(by: { (($0["bitrate"] as? Int) ?? 0) < (($1["bitrate"] as? Int) ?? 0) }),
+              let urlString = best["url"] as? String,
+              let url = URL(string: urlString) else {
+            throw ExtractionError.tweetUnavailable
+        }
+
+        return ExtractedVideo(
+            url: url,
+            bitrate: (best["bitrate"] as? Int) ?? 0,
+            tweetID: id,
+            authorHandle: Self.firstString(json, key: "screen_name"))
+    }
+
+    /// Depth-first search for every `video_info.variants` array in a JSON tree.
+    private static func collectVariants(_ obj: Any) -> [[String: Any]] {
+        var out: [[String: Any]] = []
+        if let dict = obj as? [String: Any] {
+            if let info = dict["video_info"] as? [String: Any],
+               let variants = info["variants"] as? [[String: Any]] {
+                out += variants
+            }
+            for value in dict.values { out += collectVariants(value) }
+        } else if let arr = obj as? [Any] {
+            for value in arr { out += collectVariants(value) }
+        }
+        return out
+    }
+
+    private static func firstString(_ obj: Any, key: String) -> String? {
+        if let dict = obj as? [String: Any] {
+            if let value = dict[key] as? String { return value }
+            for value in dict.values {
+                if let found = firstString(value, key: key) { return found }
+            }
+        } else if let arr = obj as? [Any] {
+            for value in arr {
+                if let found = firstString(value, key: key) { return found }
+            }
+        }
+        return nil
+    }
+
+    private static let graphQLFeatures = """
+    {"creator_subscriptions_tweet_preview_api_enabled":true,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"articles_preview_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_enhance_cards_enabled":false}
+    """
 }
 
 // MARK: - Syndication JSON shape
