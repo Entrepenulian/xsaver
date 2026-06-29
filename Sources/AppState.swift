@@ -87,6 +87,7 @@ final class AppState: ObservableObject {
     // Held strongly for the lifetime of an in-flight download.
     private var downloader: VideoDownloader?
     let instagramAuth = InstagramAuth()
+    let xAuth = XAuth()
 
     init() {
         // The panel closes when the app resigns active (you click outside). Clear the
@@ -184,6 +185,11 @@ final class AppState: ObservableObject {
                     phase = .failure("Log in to Instagram, then press Download again.")
                     return
                 }
+                if error is NeedsXLogin {
+                    xAuth.presentLogin()
+                    phase = .failure("This post is restricted. Log in to X, then press Download again.")
+                    return
+                }
                 let message = (error as? LocalizedError)?.errorDescription
                     ?? error.localizedDescription
                 shakeToken += 1
@@ -195,8 +201,18 @@ final class AppState: ObservableObject {
     /// Resolve a pasted link to a downloadable video, picking the right platform.
     private func resolveVideo(_ input: String) async throws -> ExtractedVideo {
         switch MediaExtractor.detect(input) {
-        case .x:
-            return try await TweetVideoExtractor.extract(from: input)
+        case .x(let id):
+            do {
+                return try await TweetVideoExtractor.extract(from: input)
+            } catch {
+                // Gated post (graphic-content interstitial / age-restricted / protected):
+                // retry with the user's X login if we have it, else ask them to log in.
+                if let auth = await xAuth.graphQLAuth() {
+                    return try await TweetVideoExtractor.extractAuthenticated(
+                        id: id, cookie: auth.cookie, csrf: auth.csrf)
+                }
+                throw NeedsXLogin()
+            }
         case .instagram(let shortcode):
             guard let cookie = await instagramAuth.cookieHeader() else {
                 throw InstagramExtractionError.notLoggedIn

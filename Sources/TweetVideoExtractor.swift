@@ -148,9 +148,23 @@ enum TweetVideoExtractor {
         return token
     }
 
-    private static func extractViaGraphQL(id: String) async throws -> ExtractedVideo {
-        let token = try await guestToken()
+    /// How to authorize a GraphQL request: a guest token, or the user's X session.
+    enum GraphQLAuth {
+        case guest(String)
+        case user(cookie: String, csrf: String)
+    }
 
+    private static func extractViaGraphQL(id: String) async throws -> ExtractedVideo {
+        try await extractViaGraphQL(id: id, auth: .guest(try await guestToken()))
+    }
+
+    /// Authenticated variant — uses the user's X login so it can see gated content
+    /// (graphic-content interstitials, age-restricted, protected accounts).
+    static func extractAuthenticated(id: String, cookie: String, csrf: String) async throws -> ExtractedVideo {
+        try await extractViaGraphQL(id: id, auth: .user(cookie: cookie, csrf: csrf))
+    }
+
+    private static func extractViaGraphQL(id: String, auth: GraphQLAuth) async throws -> ExtractedVideo {
         let variables = "{\"tweetId\":\"\(id)\",\"withCommunity\":false,\"includePromotedContent\":false,\"withVoice\":false}"
         var comps = URLComponents(
             string: "https://api.x.com/graphql/\(tweetResultQueryID)/TweetResultByRestId")!
@@ -161,9 +175,18 @@ enum TweetVideoExtractor {
 
         var req = URLRequest(url: comps.url!)
         req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        req.setValue(token, forHTTPHeaderField: "x-guest-token")
         req.setValue(webUserAgent, forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "content-type")
+        switch auth {
+        case .guest(let token):
+            req.setValue(token, forHTTPHeaderField: "x-guest-token")
+        case .user(let cookie, let csrf):
+            req.setValue(cookie, forHTTPHeaderField: "Cookie")
+            req.setValue(csrf, forHTTPHeaderField: "x-csrf-token")
+            req.setValue("OAuth2Session", forHTTPHeaderField: "x-twitter-auth-type")
+            req.setValue("yes", forHTTPHeaderField: "x-twitter-active-user")
+            req.setValue("en", forHTTPHeaderField: "x-twitter-client-language")
+        }
 
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
