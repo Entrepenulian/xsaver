@@ -48,6 +48,17 @@ Instagram only lets you download reels while you're signed in. The first time yo
 a reel, a small **Log in to Instagram** window appears. Sign in once and xsaver
 remembers it, so after that reels download just like X videos.
 
+### Sensitive or restricted posts
+
+Most posts download with no sign-in. But some X posts are gated behind a "sensitive" or
+"graphic content" warning, or come from a private account. X only shows those to a
+signed-in account, so the first time you grab one, a **Log in to X** window appears.
+Sign in once and xsaver remembers it.
+
+> For sensitive media, turn on **Settings → Privacy and safety → Content you see →
+> Display media that may contain sensitive content** in your X account, or X keeps it
+> hidden even from you.
+
 ## Where your files go
 
 | You picked | It saves to | As |
