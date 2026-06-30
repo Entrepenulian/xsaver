@@ -20,7 +20,8 @@ your Mac. Copy a post's link, open xsaver from your menu bar, paste it in, and h
 Download. You can grab the full video, or pull out just the audio.
 
 It knows which link is which, so you do not pick anything. Paste an X link or an
-Instagram link and it just works.
+Instagram link and it just works. Audio works the same on both: pick **Audio** and it
+pulls just the sound out as an `.m4a`.
 
 No website, no third-party downloader, no ads. Nothing else sees what you download.
 
